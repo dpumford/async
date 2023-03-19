@@ -2,7 +2,7 @@ package function_queue
 
 import "sync"
 
-const defaultConcurrency = 3
+const defaultConcurrency = 1
 
 type Function[V, R any] func(V) (R, error)
 type queuedFunction[V, R any] struct {
