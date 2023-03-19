@@ -2,6 +2,8 @@ package function_queue
 
 import "sync"
 
+const defaultConcurrency = 3
+
 type Function[V, R any] func(V) (R, error)
 type queuedFunction[V, R any] struct {
 	f Function[V, R]
@@ -9,8 +11,8 @@ type queuedFunction[V, R any] struct {
 }
 
 type Result[R any] struct {
-	r   R
-	err error
+	R   R
+	Err error
 }
 
 type Runner[V, R any] interface {
@@ -18,7 +20,7 @@ type Runner[V, R any] interface {
 }
 
 type Waiter[V, R any] interface {
-	Wait() ([]R, []error)
+	Wait() []Result[R]
 }
 
 type FunctionQueue[V, R any] struct {
@@ -35,7 +37,6 @@ func (queue *FunctionQueue[V, R]) Run(f Function[V, R], v V) {
 }
 
 func (queue *FunctionQueue[V, R]) Wait() []Result[R] {
-
 	queue.functionWaitGroup.Wait()
 
 	close(queue.queuedFunctions)
@@ -43,21 +44,24 @@ func (queue *FunctionQueue[V, R]) Wait() []Result[R] {
 	return queue.results
 }
 
-func NewFunctionQueue[V, R any]() *FunctionQueue[V, R] {
+func NewFunctionQueue[V, R any](concurrency int) *FunctionQueue[V, R] {
 	queue := FunctionQueue[V, R]{
 		queuedFunctions: make(chan queuedFunction[V, R]),
 	}
 
-	// TODO: add concurrency limit
-	for worker := 0; worker < 3; worker++ {
+	if concurrency == 0 {
+		concurrency = defaultConcurrency
+	}
+
+	for worker := 0; worker < concurrency; worker++ {
 		go func() {
 			for function := range queue.queuedFunctions {
 				result, err := function.f(function.v)
 
 				queue.resultMutex.Lock()
 				queue.results = append(queue.results, Result[R]{
-					r:   result,
-					err: err,
+					R:   result,
+					Err: err,
 				})
 				queue.resultMutex.Unlock()
 
