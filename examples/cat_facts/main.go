@@ -8,20 +8,20 @@ import (
 )
 
 func main() {
-	multiplierQueue := function_queue.NewFunctionQueue[int, factResult](3)
+	factQueue := function_queue.NewFunctionQueue[int, factResult](3)
 
 	for i := 0; i < 10; i++ {
-		multiplierQueue.Run(getQuote, i)
+		factQueue.Run(getFact, i)
 	}
 
-	results := multiplierQueue.Wait()
+	results := factQueue.Wait()
 
 	for _, v := range results {
 		if v.Err != nil {
 			panic(v.Err)
 		}
 
-		fmt.Printf("Quote %d: %s\n", v.R.index, v.R.fact.Text)
+		fmt.Printf("Fact %d: %s\n", v.R.index, v.R.fact.Text)
 	}
 }
 
@@ -34,7 +34,7 @@ type fact struct {
 	Text string
 }
 
-func getQuote(index int) (factResult, error) {
+func getFact(index int) (factResult, error) {
 	res, err := http.Get("https://cat-fact.herokuapp.com/facts/random")
 
 	if err != nil {
