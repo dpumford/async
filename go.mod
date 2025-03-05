@@ -1,10 +1,10 @@
-module async
+module github.com/dpumford/async
 
-go 1.19
+go 1.24
 
 require (
 	github.com/gammazero/workerpool v1.1.3
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.10.0
 )
 
 require (

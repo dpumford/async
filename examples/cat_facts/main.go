@@ -1,14 +1,14 @@
 package main
 
 import (
-	"async/pkg/function_queue"
 	"encoding/json"
 	"fmt"
+	"github.com/dpumford/async"
 	"net/http"
 )
 
 func main() {
-	factQueue := function_queue.NewFunctionQueue[int, factResult](3)
+	factQueue := async.NewFunctionQueue[int, factResult](3)
 
 	for i := 0; i < 10; i++ {
 		factQueue.Run(getFact, i)
