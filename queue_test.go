@@ -1,4 +1,4 @@
-package function_queue
+package async
 
 import (
 	"fmt"
