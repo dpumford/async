@@ -4,7 +4,7 @@ This package simplifies the process of running code concurrently. It codifies a 
 
 ```golang
 func main() {
-    multiplierQueue := function_queue.NewFunctionQueue[int, int](3)
+    multiplierQueue := async.NewFunctionQueue[int, int](3)
 
     for i := 0; i < 10; i++ {
         multiplierQueue.Run(func(num int) (int, error) {
