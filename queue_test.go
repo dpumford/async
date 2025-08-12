@@ -1,6 +1,7 @@
 package async
 
 import (
+	"context"
 	"fmt"
 	"github.com/gammazero/workerpool"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +12,7 @@ import (
 
 func TestFunctionQueue_Run(t *testing.T) {
 	t.Run("Jobs start execution before Wait() is called", func(t *testing.T) {
-		queue := NewFunctionQueue[int, int](3)
+		queue := NewFunctionQueue[int, int](context.Background(), 3)
 		lock := sync.Mutex{}
 
 		queue.Run(func(_ int) (int, error) {
@@ -33,7 +34,7 @@ func TestFunctionQueue_Run(t *testing.T) {
 
 func TestFunctionQueue_Wait(t *testing.T) {
 	t.Run("int", func(t *testing.T) {
-		queue := NewFunctionQueue[int, int](3)
+		queue := NewFunctionQueue[int, int](context.Background(), 3)
 		jobCount := 10
 
 		for i := 0; i < jobCount; i++ {
@@ -59,9 +60,36 @@ func TestFunctionQueue_Wait(t *testing.T) {
 	})
 }
 
+func TestFunctionQueue_Cancel(t *testing.T) {
+	t.Run("int", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+
+		queue := NewFunctionQueue[int, int](ctx, 3)
+		jobCount := 10
+
+		for i := 0; i < jobCount; i++ {
+			queue.Run(func(i int) (int, error) {
+				time.Sleep(100 * time.Millisecond)
+
+				return i * i, nil
+			}, i)
+
+			if i == 2 {
+				cancel()
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		results := queue.Wait()
+
+		assert.Len(t, results, 3)
+	})
+}
+
 func TestNewFunctionQueue(t *testing.T) {
 	t.Run("Default concurrency is 1", func(t *testing.T) {
-		queue := NewFunctionQueue[int, int](0)
+		queue := NewFunctionQueue[int, int](context.Background(), 0)
 		lock := sync.Mutex{}
 
 		queue.Run(func(_ int) (int, error) {
@@ -103,7 +131,7 @@ func BenchmarkFunctionQueue_Wait(b *testing.B) {
 }
 
 func asyncMultiplication(concurrency, count int) {
-	multiplierQueue := NewFunctionQueue[int, int](concurrency)
+	multiplierQueue := NewFunctionQueue[int, int](context.Background(), concurrency)
 
 	for i := 0; i < count; i++ {
 		multiplierQueue.Run(func(i int) (int, error) {

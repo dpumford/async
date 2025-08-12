@@ -1,6 +1,9 @@
 package async
 
-import "sync"
+import (
+	"context"
+	"sync"
+)
 
 const defaultConcurrency = 1
 
@@ -29,9 +32,20 @@ type FunctionQueue[V, R any] struct {
 
 	results     []Result[R]
 	resultMutex sync.Mutex
+
+	ctx           context.Context
+	cancel        context.CancelFunc
+	canceled      bool
+	canceledMutex sync.Mutex
 }
 
 func (queue *FunctionQueue[V, R]) Run(f Function[V, R], v V) {
+	queue.canceledMutex.Lock()
+	defer queue.canceledMutex.Unlock()
+	if queue.canceled {
+		return
+	}
+
 	queue.functionWaitGroup.Add(1)
 	queue.queuedFunctions <- queuedFunction[V, R]{f, v}
 }
@@ -39,19 +53,35 @@ func (queue *FunctionQueue[V, R]) Run(f Function[V, R], v V) {
 func (queue *FunctionQueue[V, R]) Wait() []Result[R] {
 	queue.functionWaitGroup.Wait()
 
-	close(queue.queuedFunctions)
+	queue.canceledMutex.Lock()
+	if !queue.canceled {
+		close(queue.queuedFunctions)
+	}
+	queue.canceledMutex.Unlock()
 
 	return queue.results
 }
 
-func NewFunctionQueue[V, R any](concurrency int) *FunctionQueue[V, R] {
+func NewFunctionQueue[V, R any](ctx context.Context, concurrency int) *FunctionQueue[V, R] {
+	innerCtx, cancel := context.WithCancel(ctx)
+
 	queue := FunctionQueue[V, R]{
 		queuedFunctions: make(chan queuedFunction[V, R]),
+		ctx:             innerCtx,
+		cancel:          cancel,
 	}
 
 	if concurrency == 0 {
 		concurrency = defaultConcurrency
 	}
+
+	go func() {
+		<-queue.ctx.Done()
+		queue.canceledMutex.Lock()
+		queue.canceled = true
+		close(queue.queuedFunctions)
+		queue.canceledMutex.Unlock()
+	}()
 
 	for worker := 0; worker < concurrency; worker++ {
 		go func() {
